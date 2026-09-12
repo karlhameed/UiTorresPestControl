@@ -6,9 +6,9 @@
 
 import { colors } from "../../styles/theme";
 
-function Field({ label, error, hint, children }) {
+function Field({ label, error, hint, children, style }) {
   return (
-    <label style={{ display: "grid", gap: "0.45rem", color: "#374151", fontWeight: 700 }}>
+    <label style={{ display: "grid", gap: "0.45rem", color: "#374151", fontWeight: 700, ...style }}>
       <span>{label}</span>
       {children}
       {hint && !error && (

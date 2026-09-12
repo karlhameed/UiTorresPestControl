@@ -14,7 +14,17 @@ function LoginPage() {
   }
 
   return (
-    <div className="login-page">
+    <div
+      className="login-page"
+      style={{
+        backgroundImage:
+          "linear-gradient(120deg, rgba(29, 7, 7, 0.52), rgba(29, 7, 7, 0.32)), url('/ImageLoginBackground.jpg')",
+        backgroundPosition: "center",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
+      }}
+    >
       <main className="login-form-panel">
         <Login onLogin={login} />
       </main>

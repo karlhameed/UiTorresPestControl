@@ -6,14 +6,22 @@
 // navigation was missing entirely — the old page imported only useParams,
 // with no Link anywhere.
 
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, PencilLine, X } from "lucide-react";
 import ClientForm from "./ClientForm";
 import ClientDocuments from "./ClientDocuments";
-import InfoRow from "../common/InfoRow";
 import PageHeader from "../common/PageHeader";
 import { formatDateTime, humanizeEnum } from "../../utils/formatters";
 import { card, colors, pageShell } from "../../styles/theme";
+
+const neutralCard = {
+  ...card,
+  borderTop: "none",
+  border: "1px solid rgba(148, 163, 184, 0.22)",
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+  background: "#ffffff",
+};
 
 function ClientDetails({
   client,
@@ -25,61 +33,94 @@ function ClientDetails({
   onRemoveDocument,
   onResolveDocumentUrl,
 }) {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const overviewFields = useMemo(
+    () => [
+      { label: "Classification", value: client.classification === "OTHER" && client.classificationOther ? client.classificationOther : humanizeEnum(client.classification) },
+      { label: "Pest Concern", value: client.pestConcern || "—" },
+      { label: "Source", value: client.source || "—" },
+      { label: "Phone", value: client.phone || "—" },
+      { label: "Email", value: client.email || "—" },
+      { label: "Address", value: client.address || "—", fullWidth: true },
+    ],
+    [client]
+  );
+
   return (
     <div style={pageShell}>
       <PageHeader
         eyebrow="Client Profile"
         title={client.name}
         actions={
-          <Link
-            to="/clients"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              color: colors.brandInk,
-              fontWeight: 700,
-              textDecoration: "none",
-            }}
-          >
-            <ArrowLeft size={16} /> Back to Client Profiles
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  background: "#7f1d1d",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "10px",
+                  padding: "0.65rem 0.9rem",
+                  fontWeight: 700,
+                  fontSize: "0.82rem",
+                  cursor: "pointer",
+                  boxShadow: "0 10px 18px rgba(127, 17, 17, 0.12)",
+                }}
+              >
+                <PencilLine size={15} /> Edit Profile
+              </button>
+            )}
+            <Link
+              to="/clients"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                color: colors.brandInk,
+                fontWeight: 700,
+                textDecoration: "none",
+              }}
+            >
+              <ArrowLeft size={16} /> Back to Client Profiles
+            </Link>
+          </div>
         }
       />
 
-      {/* AC (View Single Client Profile): "Detail view displays full client
-          information, classification, and attached documents." */}
-      <section style={{ ...card, marginBottom: "1.5rem", padding: "1.35rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+      <section style={{ ...neutralCard, marginBottom: "1.5rem", padding: "1.5rem" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", marginBottom: "1.25rem", flexWrap: "wrap" }}>
           <div>
-            <p style={{ margin: 0, color: colors.brandInk, fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>Client record</p>
-            <h2 style={{ margin: "0.25rem 0 0", color: colors.ink, fontSize: "1.25rem" }}>Profile overview</h2>
+            <p style={{ margin: 0, color: "#64748b", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase" }}>Client record</p>
+            <h2 style={{ margin: "0.35rem 0 0", color: colors.ink, fontSize: "1.5rem", fontWeight: 700 }}>Profile overview</h2>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.75rem" }}>
-          <InfoRow
-            tone="brand"
-            label="Classification"
-            value={
-              client.classification === "OTHER" && client.classificationOther
-                ? client.classificationOther
-                : humanizeEnum(client.classification)
-            }
-          />
-          <InfoRow tone="brand" label="Pest Concern" value={client.pestConcern} />
-          <InfoRow tone="brand" label="Source" value={client.source} />
-          <InfoRow tone="brand" label="Phone" value={client.phone} />
-          <InfoRow tone="brand" label="Email" value={client.email} />
-          <div style={{ gridColumn: "1 / -1" }}><InfoRow tone="brand" label="Address" value={client.address} /></div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "1rem" }}>
+          {overviewFields.map((field) => (
+            <div key={field.label} style={{ gridColumn: field.fullWidth ? "1 / -1" : "span 1" }}>
+              <div style={{ fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+                {field.label}
+              </div>
+              <div style={{ marginTop: "0.35rem", fontSize: "0.95rem", color: "#0f172a", fontWeight: 600, lineHeight: 1.5 }}>
+                {field.value}
+              </div>
+            </div>
+          ))}
         </div>
-        {/* AC (Edit Client Profile): "Edit history/timestamp is logged." */}
-        <p style={{ margin: "1rem 0 0", color: colors.muted, fontSize: "0.82rem" }}>
-          Created {formatDateTime(client.createdAt)} <span aria-hidden="true">•</span> Last updated {formatDateTime(client.updatedAt)}
-        </p>
+
+        <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid #e2e8f0", fontSize: "0.74rem", color: "#64748b" }}>
+          Created {formatDateTime(client.createdAt)} • Last updated {formatDateTime(client.updatedAt)}
+        </div>
       </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "1.5rem" }}>
-        <div style={card}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.5rem" }}>
+        <div style={neutralCard}>
           <ClientDocuments
             documents={client.documents || []}
             canUpload={canUploadDocuments}
@@ -89,20 +130,66 @@ function ClientDetails({
             onResolveUrl={onResolveDocumentUrl}
           />
         </div>
-
-        <div style={card}>
-          <h2 style={{ marginTop: 0, marginBottom: "1rem", color: colors.body }}>Client Information</h2>
-          {/* AC: "Staff can navigate back to the list or edit the profile from
-              this view." Everything above is read-only; editing happens here. */}
-          {canEdit ? (
-            <ClientForm initialValues={client} onSubmit={onSave} submitLabel="Save Changes" />
-          ) : (
-            <p style={{ margin: 0, color: colors.muted, lineHeight: 1.6 }}>
-              Your role has view-only access to client profiles. The full details are shown above.
-            </p>
-          )}
-        </div>
       </div>
+
+      {isEditModalOpen && canEdit && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+            padding: "1rem",
+            backdropFilter: "blur(2px)",
+          }}
+          onClick={() => setIsEditModalOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              background: "#ffffff",
+              borderRadius: "20px",
+              border: "1px solid rgba(148, 163, 184, 0.22)",
+              boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
+              width: "100%",
+              maxWidth: "720px",
+              padding: "1.5rem",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <div>
+                <div style={{ fontSize: "0.7rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>Client Details</div>
+                <h3 style={{ margin: "0.25rem 0 0", color: "#0f172a", fontSize: "1.4rem" }}>Edit Profile</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                style={{
+                  width: "2rem",
+                  height: "2rem",
+                  borderRadius: "999px",
+                  border: "1px solid #e2e8f0",
+                  background: "#ffffff",
+                  color: "#475569",
+                  display: "grid",
+                  placeItems: "center",
+                  cursor: "pointer",
+                }}
+                aria-label="Close edit profile modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <ClientForm initialValues={client} onSubmit={async (values) => { const result = await onSave(values); if (result !== false) setIsEditModalOpen(false); }} submitLabel="Save Changes" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

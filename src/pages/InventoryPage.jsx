@@ -10,7 +10,8 @@
 // Splitting this into components/inventory/* is still deferred (see the
 // original note this replaced) — the file's just bigger now.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MoreHorizontal, Search } from "lucide-react";
 import useInventory from "../hooks/useInventory";
 import useAuth from "../hooks/useAuth";
 import { SUBSYSTEMS } from "../utils/permissions";
@@ -74,8 +75,6 @@ function UnitField({ value, onChange }) {
 
 function InventoryPage() {
   const { can } = useAuth();
-  const canCreate = can(SUBSYSTEMS.INVENTORY, "create");
-  const canEdit = can(SUBSYSTEMS.INVENTORY, "edit");
 
   const {
     inventory,
@@ -83,6 +82,7 @@ function InventoryPage() {
     updateItem,
     setItemStatus,
     stockIn,
+    removeItem,
     loading,
     error,
     movements,
@@ -98,7 +98,23 @@ function InventoryPage() {
   const [editItem, setEditItem] = useState(null);
   const [stockInItem, setStockInItem] = useState(null);
   const [disableTarget, setDisableTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [actionMenuItemId, setActionMenuItemId] = useState(null);
+  const [actionMenuDirection, setActionMenuDirection] = useState({});
   const [form, setForm] = useState(CREATE_FORM_DEFAULTS);
+  const actionMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (!actionMenuRef.current) return;
+      if (!actionMenuRef.current.contains(event.target)) {
+        setActionMenuItemId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   // Inventory and history filtering states
   const [itemSearch, setItemSearch] = useState("");
@@ -202,18 +218,17 @@ function InventoryPage() {
     return result;
   }, [movements, historySearch, historyItemFilter, historyBranchFilter, historyDateFilter, historySort]);
 
-  const totalCapitalSpent = useMemo(() => {
-    return filteredAndSortedMovements.reduce((sum, m) => sum + (m.totalCost || 0), 0);
-  }, [filteredAndSortedMovements]);
-
-  const totalUnitsReceived = useMemo(() => {
-    return filteredAndSortedMovements.reduce((sum, m) => sum + (m.amount || 0), 0);
-  }, [filteredAndSortedMovements]);
-
   useEffect(() => {
     if (tab === "history") refreshMovements();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  const handleActionMenuToggle = (event, itemId) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const shouldOpenUp = bounds.bottom + 180 > window.innerHeight;
+    setActionMenuDirection((previous) => ({ ...previous, [itemId]: shouldOpenUp ? "up" : "down" }));
+    setActionMenuItemId((current) => (current === itemId ? null : itemId));
+  };
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -291,19 +306,35 @@ function InventoryPage() {
     <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
       <div style={{ marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <div>
-          <p style={{ color: colors.brandInk, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", fontSize: "0.75rem" }}>
+          <p style={{ color: "#7f1d1d", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", fontSize: "0.72rem", margin: 0 }}>
             Inventory
           </p>
-          <h1 style={{ margin: "0.2rem 0 0", fontSize: "2rem", color: "#111827" }}>Item Profile</h1>
+          <h1 style={{ margin: "0.25rem 0 0", fontSize: "2.1rem", color: "#0f172a", lineHeight: 1.15 }}>
+            Inventory Management
+          </h1>
         </div>
         {tab === "items" && (
-          <button type="button" onClick={() => setOpenForm((value) => !value)} style={primaryButton}>
+          <button
+            type="button"
+            onClick={() => setOpenForm((value) => !value)}
+            style={{
+              background: "#b91c1c",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "10px",
+              padding: "0.78rem 1.15rem",
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 8px 22px rgba(185, 28, 28, 0.18)",
+            }}
+          >
             {openForm ? "Close Form" : "Add Inventory Item"}
           </button>
         )}
       </div>
 
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem", borderBottom: `2px solid #f0f0f0` }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", borderBottom: "1px solid #e2e8f0" }}>
         <TabButton active={tab === "items"} onClick={() => setTab("items")}>
           Items
         </TabButton>
@@ -446,56 +477,84 @@ function InventoryPage() {
             </form>
           )}
 
-          <div style={{ ...card, marginBottom: "1rem" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 2fr) repeat(3, minmax(150px, 1fr)) auto", gap: "0.85rem", alignItems: "end" }}>
-              <Field label="Search Items">
-                <input
-                  value={itemSearch}
-                  onChange={(e) => setItemSearch(e.target.value)}
-                  placeholder="Name, supplier, type, status, or stock…"
-                  style={inputStyle}
-                />
-              </Field>
-              <Field label="Type">
-                <select value={itemTypeFilter} onChange={(e) => setItemTypeFilter(e.target.value)} style={inputStyle}>
-                  <option value="ALL">All Types</option>
-                  <option value="CHEMICAL">Chemical</option>
-                  <option value="EQUIPMENT">Equipment</option>
-                  <option value="MATERIAL">Material</option>
-                </select>
-              </Field>
-              <Field label="Status">
-                <select value={itemStatusFilter} onChange={(e) => setItemStatusFilter(e.target.value)} style={inputStyle}>
-                  <option value="ALL">All Statuses</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="DISABLED">Disabled</option>
-                </select>
-              </Field>
-              <Field label="Stock Level">
-                <select value={itemStockFilter} onChange={(e) => setItemStockFilter(e.target.value)} style={inputStyle}>
-                  <option value="ALL">All Stock Levels</option>
-                  <option value="OUT">Out of Stock</option>
-                  <option value="LOW">Low Stock</option>
-                  <option value="HEALTHY">Healthy Stock</option>
-                </select>
-              </Field>
-              <button type="button" onClick={clearItemFilters} disabled={!hasItemFilters} style={buttonWhen(!hasItemFilters, secondaryButton)}>
-                Clear
-              </button>
-            </div>
-            <div style={{ marginTop: "0.75rem", color: "#6b7280", fontSize: "0.82rem" }}>
-              Showing {filteredInventory.length} of {inventory.length} items
+          <div style={{ maxWidth: "1200px", width: "100%", margin: "0 auto" }}>
+            <div style={{ background: "#ffffff", border: "1px solid rgba(148, 163, 184, 0.2)", borderRadius: "18px", boxShadow: "0 8px 18px rgba(15, 23, 42, 0.03)", padding: "1rem", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", gap: "0.9rem", alignItems: "end", flexWrap: "wrap" }}>
+                <div style={{ flex: "1 1 260px", minWidth: "220px" }}>
+                  <label style={{ display: "block", color: "#475569", fontSize: "0.75rem", fontWeight: 700, marginBottom: "0.45rem" }}>
+                    Search
+                  </label>
+                  <div style={{ position: "relative" }}>
+                    <Search size={15} style={{ position: "absolute", left: "0.9rem", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+                    <input
+                      value={itemSearch}
+                      onChange={(e) => setItemSearch(e.target.value)}
+                      placeholder="Search items"
+                      style={{ ...inputStyle, paddingLeft: "2.4rem" }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ flex: "0 0 170px" }}>
+                  <label style={{ display: "block", color: "#475569", fontSize: "0.75rem", fontWeight: 700, marginBottom: "0.45rem" }}>
+                    Type
+                  </label>
+                  <select value={itemTypeFilter} onChange={(e) => setItemTypeFilter(e.target.value)} style={inputStyle}>
+                    <option value="ALL">All Types</option>
+                    <option value="CHEMICAL">Chemical</option>
+                    <option value="EQUIPMENT">Equipment</option>
+                    <option value="MATERIAL">Material</option>
+                  </select>
+                </div>
+
+                <div style={{ flex: "0 0 170px" }}>
+                  <label style={{ display: "block", color: "#475569", fontSize: "0.75rem", fontWeight: 700, marginBottom: "0.45rem" }}>
+                    Status
+                  </label>
+                  <select value={itemStatusFilter} onChange={(e) => setItemStatusFilter(e.target.value)} style={inputStyle}>
+                    <option value="ALL">All Statuses</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="DISABLED">Disabled</option>
+                  </select>
+                </div>
+
+                <div style={{ flex: "0 0 170px" }}>
+                  <label style={{ display: "block", color: "#475569", fontSize: "0.75rem", fontWeight: 700, marginBottom: "0.45rem" }}>
+                    Stock Level
+                  </label>
+                  <select value={itemStockFilter} onChange={(e) => setItemStockFilter(e.target.value)} style={inputStyle}>
+                    <option value="ALL">All Stock Levels</option>
+                    <option value="OUT">Out of Stock</option>
+                    <option value="LOW">Low Stock</option>
+                    <option value="HEALTHY">Healthy Stock</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={clearItemFilters}
+                  disabled={!hasItemFilters}
+                  style={{
+                    ...secondaryButton,
+                    padding: "0.72rem 0.9rem",
+                    fontSize: "0.82rem",
+                    minWidth: "120px",
+                    opacity: hasItemFilters ? 1 : 0.55,
+                  }}
+                >
+                  Clear Filters
+                </button>
+              </div>
             </div>
           </div>
 
-          <div style={{ ...card, padding: 0, overflow: "hidden" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1.1fr 0.7fr 0.9fr 1fr 1.6fr", gap: "0.75rem", padding: "1rem 1.25rem", background: "#fafafa", fontWeight: 700, color: "#374151" }}>
-              <span>Item Name</span>
-              <span>Type</span>
-              <span>Unit</span>
-              <span>Quantity</span>
-              <span>Info</span>
-              <span>Actions</span>
+          <div style={{ maxWidth: "1200px", width: "100%", margin: "0 auto", background: "#ffffff", border: "1px solid rgba(148, 163, 184, 0.2)", borderRadius: "18px", boxShadow: "0 8px 18px rgba(15, 23, 42, 0.03)", overflow: "visible", position: "relative", zIndex: 1 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2.5fr) 1fr 1.2fr 1fr 1.4fr", gap: "0.75rem", padding: "0.9rem 1.5rem", background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Item Details</span>
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>Type</span>
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "right" }}>Stock Level</span>
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "center" }}>Status</span>
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", textAlign: "right" }}>Actions</span>
             </div>
 
             {error && (
@@ -524,6 +583,12 @@ function InventoryPage() {
               const isLowStock = Number(item.quantity) <= 0 || (item.reorderLevel !== null && item.reorderLevel !== undefined && item.quantity <= item.reorderLevel);
               const isDisabled = item.status === INVENTORY_STATUS.DISABLED;
               const typeLabel = item.type === "CHEMICAL" ? "Chemical" : item.type === "EQUIPMENT" ? "Equipment" : "Material";
+              const stockText = `${Number(item.quantity || 0).toLocaleString()} ${item.unit || ""}`.trim();
+              const stockBadgeStyle = isDisabled
+                ? { background: "#f1f5f9", border: "1px solid #e2e8f0", color: "#475569" }
+                : isLowStock
+                  ? { background: "#fff7ed", border: "1px solid #fed7aa", color: "#b45309" }
+                  : { background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#166534" };
 
               return (
                 <div
@@ -531,74 +596,131 @@ function InventoryPage() {
                   onClick={() => setSelectedItem(item)}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "2fr 1.1fr 0.7fr 0.9fr 1fr 1.6fr",
+                    gridTemplateColumns: "minmax(0, 2.5fr) 1fr 1.2fr 1fr 1.4fr",
                     gap: "0.75rem",
-                    padding: "1rem 1.25rem",
-                    borderTop: "1px solid #f1f1f1",
+                    padding: "1rem",
+                    borderTop: "1px solid #f1f5f9",
                     alignItems: "center",
                     cursor: "pointer",
-                    transition: "background-color 0.2s",
-                    opacity: isDisabled ? 0.55 : 1,
-                    background: isDisabled ? "#fafafa" : "transparent",
+                    transition: "background-color 0.2s ease",
+                    background: isDisabled ? "#f8fafc" : "#ffffff",
+                    position: "relative",
+                    zIndex: actionMenuItemId === item.id ? 60 : 1,
+                    overflow: "visible",
+                    isolation: "isolate",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isDisabled ? "#f3f4f6" : "#f9f9f9")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = isDisabled ? "#fafafa" : "transparent")}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f8fafc")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#ffffff")}
                 >
-                  <div>
-                    <div style={{ fontWeight: 700, color: "#111827" }}>
-                      {item.name}
-                      {isDisabled && (
-                        <span style={{ marginLeft: "0.5rem", fontSize: "0.7rem", fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                          Disabled
-                        </span>
-                      )}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.96rem" }}>{item.name}</div>
+                    <div style={{ marginTop: "0.2rem", fontSize: "0.72rem", color: "#64748b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {item.supplier || item.storageLocation || "Inventory item"}
                     </div>
-                    {item.supplier && <div style={{ fontSize: "0.85rem", color: "#6b7280" }}>{item.supplier}</div>}
                   </div>
-                  <div style={{ color: "#374151" }}>{typeLabel}</div>
-                  <div style={{ color: "#374151" }}>{item.unit}</div>
-                  <div style={{ fontWeight: 700, color: isLowStock ? "#b91c1c" : "#111827" }}>{item.quantity}</div>
-                  <div>
-                    {isDisabled ? (
-                      <span style={{ background: "#f3f4f6", color: "#4b5563", borderRadius: "999px", padding: "0.35rem 0.7rem", fontSize: "0.75rem", fontWeight: 700 }}>
-                        Disabled
-                      </span>
-                    ) : isLowStock ? (
-                      <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: "999px", padding: "0.35rem 0.7rem", fontSize: "0.75rem", fontWeight: 700 }}>
-                        Low Stock
-                      </span>
-                    ) : (
-                      <span style={{ background: "#dcfce7", color: "#166534", borderRadius: "999px", padding: "0.35rem 0.7rem", fontSize: "0.75rem", fontWeight: 700 }}>
-                        Healthy
-                      </span>
-                    )}
+
+                  <div style={{ color: "#475569", fontSize: "0.9rem" }}>{typeLabel}</div>
+
+                  <div style={{ color: isLowStock ? "#b91c1c" : "#0f172a", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>
+                    {stockText}
                   </div>
-                  <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
-                    <button type="button" onClick={() => setEditItem(item)} style={actionButtonStyle}>
-                      Edit
-                    </button>
+
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        borderRadius: "999px",
+                        padding: "0.32rem 0.7rem",
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        ...stockBadgeStyle,
+                      }}
+                    >
+                      {isDisabled ? "Disabled" : isLowStock ? "Low Stock" : "Healthy"}
+                    </span>
+                  </div>
+
+                  <div ref={actionMenuItemId === item.id ? actionMenuRef : null} style={{ display: "flex", gap: "0.45rem", alignItems: "center", justifyContent: "flex-end", overflow: "visible", position: "relative", zIndex: actionMenuItemId === item.id ? 200 : 1 }} onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
-                      disabled={isDisabled}
-                      onClick={() => !isDisabled && setStockInItem(item)}
-                      style={buttonWhen(isDisabled, successButton, actionButtonSize)}
-                      title={isDisabled ? "Enable this item to add stock" : "Record a Stock In"}
+                      onClick={() => setStockInItem(item)}
+                      style={{
+                        ...secondaryButton,
+                        padding: "0.42rem 0.72rem",
+                        fontSize: "0.72rem",
+                        border: "1px solid #cbd5e1",
+                        background: "#ffffff",
+                        color: "#334155",
+                        borderRadius: "6px",
+                        boxShadow: "none",
+                      }}
                     >
                       Stock In
                     </button>
-                    {isDisabled ? (
-                      <button type="button" onClick={() => setItemStatus(item.id, INVENTORY_STATUS.ACTIVE).then((r) => handleStatusResult(r, showSuccess, showError, item.name, "enabled"))} style={{ ...actionButtonStyle }}>
-                        Enable
+
+                    <div style={{ position: "relative", display: "inline-block", overflow: "visible", zIndex: actionMenuItemId === item.id ? 300 : 1 }}>
+                      <button
+                        type="button"
+                        aria-label="More actions"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          handleActionMenuToggle(event, item.id);
+                        }}
+                        style={{
+                          width: "2rem",
+                          height: "2rem",
+                          borderRadius: "9px",
+                          border: "1px solid #e2e8f0",
+                          background: "#ffffff",
+                          display: "grid",
+                          placeItems: "center",
+                          cursor: "pointer",
+                          color: "#475569",
+                          padding: "0.375rem",
+                          position: "relative",
+                          zIndex: 500,
+                        }}
+                      >
+                        <MoreHorizontal size={15} />
                       </button>
-                    ) : (
-                      <button type="button" onClick={() => setDisableTarget(item)} style={{ ...dangerButton, ...actionButtonSize }}>
-                        Disable
-                      </button>
-                    )}
+
+                      {actionMenuItemId === item.id && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: actionMenuDirection[item.id] === "up" ? "auto" : "calc(100% + 0.3rem)",
+                            bottom: actionMenuDirection[item.id] === "up" ? "calc(100% + 0.3rem)" : "auto",
+                            background: "#ffffff",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "12px",
+                            boxShadow: "0 18px 34px rgba(15, 23, 42, 0.16)",
+                            minWidth: "170px",
+                            padding: "0.35rem",
+                            zIndex: 5000,
+                            pointerEvents: "auto",
+                          }}
+                        >
+                          <button type="button" onClick={() => { setActionMenuItemId(null); setEditItem(item); }} style={{ ...menuActionStyle, color: "#0f172a" }}>Edit</button>
+                          <button type="button" onClick={() => { setActionMenuItemId(null); if (isDisabled) setItemStatus(item.id, INVENTORY_STATUS.ACTIVE).then((r) => handleStatusResult(r, showSuccess, showError, item.name, "enabled")); else setDisableTarget(item); }} style={{ ...menuActionStyle, color: isDisabled ? "#166534" : "#b91c1c" }}>
+                            {isDisabled ? "Enable" : "Disable"}
+                          </button>
+                          <button type="button" onClick={() => { setActionMenuItemId(null); setDeleteTarget(item); }} style={{ ...menuActionStyle, color: "#7f1d1d" }}>
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })}
+
+            <div style={{ padding: "0.75rem 1.5rem", borderTop: "1px solid #e2e8f0", background: "#f8fafc", color: "#64748b", fontSize: "0.75rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>Showing {filteredInventory.length} of {inventory.length} items</span>
+            </div>
           </div>
         </>
       )}
@@ -805,6 +927,29 @@ function InventoryPage() {
         }}
         onCancel={() => setDisableTarget(null)}
       />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="Delete this item?"
+        message={
+          deleteTarget
+            ? `"${deleteTarget.name}" will be permanently removed from inventory. This action cannot be undone.`
+            : ""
+        }
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={async () => {
+          const target = deleteTarget;
+          setDeleteTarget(null);
+          const result = await removeItem(target.id);
+          if (result !== true) {
+            showError(typeof result === "string" ? result : "Could not delete the item.");
+            return;
+          }
+          showSuccess(`${target.name} deleted.`);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
@@ -885,7 +1030,7 @@ function EditItemModal({ item, onClose, onSave }) {
   };
 
   return (
-    <ModalShell onClose={onClose} title={`Edit "${item.name}"`}>
+    <ModalShell onClose={onClose} title={`Edit "${item.name}"`} maxWidth="42rem">
       <form onSubmit={handleSubmit}>
         <p style={{ margin: "0 0 1.25rem", color: "#6b7280", fontSize: "0.85rem" }}>
           Update this item's details here. Quantity stays protected and can only be changed through Stock In, which records every adjustment in history.
@@ -1013,11 +1158,8 @@ function StockInModal({ item, onClose, onSubmit }) {
   };
 
   return (
-    <ModalShell onClose={onClose} title={`Stock In — ${item.name}`}>
-      <form onSubmit={handleSubmit}>
-        <p style={{ margin: "0 0 1.25rem", color: "#6b7280", fontSize: "0.85rem" }}>
-          Current stock: <strong>{item.quantity} {item.unit}</strong>. Record received delivery and purchase costs.
-        </p>
+    <ModalShell onClose={onClose} title="Stock In" subtitle={`Item: ${item.name} • Current Stock: ${item.quantity} ${item.unit}`}>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gap: "1rem" }}>
         <div style={{ display: "grid", gap: "1rem" }}>
           <Field label={`Amount (${item.unit}) *`}>
             <input
@@ -1049,24 +1191,25 @@ function StockInModal({ item, onClose, onSubmit }) {
 
           <div
             style={{
-              padding: "0.85rem 1.1rem",
-              background: "#f0fdf4",
-              borderRadius: "10px",
-              border: "1px solid #bbf7d0",
+              padding: "0.9rem 1rem",
+              background: "#f8fafc",
+              borderRadius: "12px",
+              border: "1px solid #e2e8f0",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              gap: "0.75rem",
             }}
           >
             <div>
-              <div style={{ color: "#166534", fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Total Capital Spent
+              <div style={{ color: "#475569", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Total Cost
               </div>
-              <div style={{ color: "#15803d", fontSize: "0.8rem", marginTop: "0.15rem" }}>
-                {numericAmount} {item.unit} × ₱{numericCost.toFixed(2)}
+              <div style={{ color: "#64748b", fontSize: "0.72rem", marginTop: "0.2rem" }}>
+                Qty × Cost per unit
               </div>
             </div>
-            <div style={{ color: "#14532d", fontSize: "1.35rem", fontWeight: 800 }}>
+            <div style={{ color: "#0f172a", fontSize: "1rem", fontWeight: 800, textAlign: "right" }}>
               ₱{totalCapitalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
@@ -1082,12 +1225,40 @@ function StockInModal({ item, onClose, onSubmit }) {
           </Field>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1.5rem", gap: "0.5rem" }}>
-          <button type="button" onClick={onClose} style={secondaryButton}>
+        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "0.75rem", paddingTop: "1rem", borderTop: "1px solid #f1f5f9" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              border: "1px solid #cbd5e1",
+              background: "#ffffff",
+              color: "#334155",
+              borderRadius: "10px",
+              padding: "0.65rem 1rem",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
             Cancel
           </button>
-          <button type="submit" disabled={saving} style={buttonWhen(saving, successButton)}>
-            {saving ? "Recording…" : "Add Stock & Record Cost"}
+          <button
+            type="submit"
+            disabled={saving}
+            style={{
+              border: "none",
+              background: "#7f1d1d",
+              color: "#ffffff",
+              borderRadius: "10px",
+              padding: "0.65rem 1.25rem",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              cursor: saving ? "default" : "pointer",
+              opacity: saving ? 0.7 : 1,
+              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.08)",
+            }}
+          >
+            {saving ? "Recording…" : "Submit"}
           </button>
         </div>
       </form>
@@ -1095,39 +1266,62 @@ function StockInModal({ item, onClose, onSubmit }) {
   );
 }
 
-function ModalShell({ title, onClose, children }) {
+function ModalShell({ title, subtitle, onClose, children, maxWidth = "28rem" }) {
   return (
     <div
+      role="dialog"
+      aria-modal="true"
       style={{
         position: "fixed",
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        background: "rgba(0, 0, 0, 0.5)",
+        background: "rgba(15, 23, 42, 0.6)",
+        backdropFilter: "blur(2px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         zIndex: 1000,
+        padding: "1rem",
       }}
       onClick={onClose}
     >
       <div
         style={{
-          background: "linear-gradient(180deg, #ffffff 0%, #fff8f8 100%)",
-          border: `2px solid ${colors.brandLight}`,
+          background: "#ffffff",
           borderRadius: "16px",
-          padding: "2rem",
-          maxWidth: "480px",
-          width: "90%",
-          maxHeight: "80vh",
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
+          padding: "1.5rem",
+          maxWidth,
+          width: "100%",
+          maxHeight: "90vh",
           overflowY: "auto",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", borderBottom: "2px solid #f0f0f0", paddingBottom: "1rem" }}>
-          <h2 style={{ margin: 0, color: colors.brandInk, fontSize: "1.25rem" }}>{title}</h2>
-          <button onClick={onClose} type="button" style={{ background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer", color: "#6b7280" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.35rem" }}>
+          <div>
+            <h2 style={{ margin: 0, color: "#0f172a", fontSize: "1.125rem", fontWeight: 800 }}>{title}</h2>
+            {subtitle && <p style={{ margin: "0.35rem 0 0", color: "#64748b", fontSize: "0.72rem", lineHeight: 1.4 }}>{subtitle}</p>}
+          </div>
+          <button
+            onClick={onClose}
+            type="button"
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "999px",
+              width: "2rem",
+              height: "2rem",
+              display: "grid",
+              placeItems: "center",
+              cursor: "pointer",
+              color: "#475569",
+            }}
+            aria-label="Close stock in modal"
+          >
             ✕
           </button>
         </div>
@@ -1272,6 +1466,18 @@ const actionButtonSize = {
 const actionButtonStyle = {
   ...secondaryButton,
   ...actionButtonSize,
+};
+
+const menuActionStyle = {
+  width: "100%",
+  border: "none",
+  background: "#ffffff",
+  textAlign: "left",
+  padding: "0.6rem 0.7rem",
+  borderRadius: "8px",
+  fontWeight: 600,
+  cursor: "pointer",
+  opacity: 1,
 };
 
 const inputStyle = {

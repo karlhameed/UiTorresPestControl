@@ -41,7 +41,6 @@ const MATRIX = {
     clients: ["view", "create", "edit"],
     clientDocuments: ["view", "create", "delete"],
     inventory: READ_ONLY,
-    inventory: ALL,
     logs: NONE,
     settings: READ_ONLY,
   },

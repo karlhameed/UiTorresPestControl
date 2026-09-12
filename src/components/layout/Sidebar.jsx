@@ -20,9 +20,7 @@ import { SUBSYSTEMS } from "../../utils/permissions";
 const NAV_ITEMS = [
   { label: "Dashboard", path: "/", subsystem: null, Icon: Gauge },
   { label: "Client Profiles", path: "/clients", subsystem: SUBSYSTEMS.CLIENTS, action: "view", Icon: BriefcaseBusiness },
-  { label: "Create Client Profile", path: "/clients/new", subsystem: SUBSYSTEMS.CLIENTS, action: "create", Icon: ClipboardPlus },
   { label: "User Accounts", path: "/users", subsystem: SUBSYSTEMS.USERS, action: "view", Icon: Users },
-  { label: "Create Account", path: "/users/new", subsystem: SUBSYSTEMS.USERS, action: "create", Icon: UserCircle },
   { label: "Inventory", path: "/inventory", subsystem: SUBSYSTEMS.INVENTORY, action: "view", Icon: Package },
   { label: "My Profile", path: "/account", subsystem: null, Icon: UserCircle },
 ];
@@ -92,7 +90,7 @@ const styles = {
     marginTop: "auto",
     padding: "0.85rem 0.9rem 0",
     borderTop: "1px solid rgba(255,255,255,0.18)",
-    color: "rgba(255,255,255,0.75)",
+    color: "rgba(255,255,255,0.9)",
     fontSize: "0.78rem",
   },
   navLinks: {
@@ -113,7 +111,7 @@ const styles = {
     borderRadius: "12px",
     border: "none",
     background: "transparent",
-    color: "rgba(255,255,255,0.88)",
+    color: "rgba(255,255,255,0.96)",
     fontSize: "0.9rem",
     fontWeight: 600,
     cursor: "pointer",

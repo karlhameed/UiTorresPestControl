@@ -14,7 +14,6 @@ import { ACCOUNT_STATUS, ROLES } from "../utils/constants";
 // these fields the same way, but the UI merged `role` into local state
 // anyway, so a role edit appeared to succeed and silently reverted on
 // refresh. updateAccount() now rejects the attempt instead of losing it.
-const WRITABLE_FIELDS = ["name", "phone", "email", "status", "password"];
 const TABLE_BY_ROLE = { ADMIN: "admins", STAFF: "staff", TECHNICIAN: "technicians" };
 const ACCOUNT_COLUMNS = "id, name, username, phone, email, status, created_at, updated_at, last_login_at";
 
@@ -45,13 +44,6 @@ function describeError(error) {
     error.hint ? ` (hint: ${error.hint})` : "",
     error.code ? ` [code: ${error.code}]` : "",
   ].join("");
-}
-
-function describeAccountRpcError(error, operation) {
-  if (error?.code === "PGRST202" || error?.code === "42883") {
-    return `${operation} is not available in Supabase. Run supabase/schema-v2.sql and supabase/migrations/009-user-editing-and-stock-cost.sql, then reload the schema.`;
-  }
-  return describeError(error);
 }
 
 /** Loads accounts from the role-specific account tables. */

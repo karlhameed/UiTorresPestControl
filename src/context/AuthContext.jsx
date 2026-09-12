@@ -102,6 +102,15 @@ export function AuthProvider({ children }) {
     refreshAccounts();
   }, [session, sessionVerified, refreshAccounts]);
 
+  useEffect(() => {
+    if (!session) {
+      setSessionVerified(true);
+      return;
+    }
+
+    setSessionVerified(false);
+  }, [session]);
+
   const login = useCallback(async (email, password) => {
     const { session: nextSession, profile, error: loginError } = await authService.login(email, password);
     if (loginError) return loginError;

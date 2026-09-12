@@ -12,8 +12,8 @@
 // URL.createObjectURL approach, where the "URL" was a pointer into this tab's
 // memory that died on reload.
 
-import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Trash2, UploadCloud } from "lucide-react";
 import EmptyState from "../common/EmptyState";
 import { validateDocument } from "../../utils/validators";
 import { formatDate, formatFileSize } from "../../utils/formatters";
@@ -23,6 +23,7 @@ function ClientDocuments({ documents = [], canUpload = false, canRemove = false,
   const [message, setMessage] = useState(null); // { text, tone }
   const [busyId, setBusyId] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const inputRef = useRef(null);
 
   const handleFileUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -89,32 +90,37 @@ function ClientDocuments({ documents = [], canUpload = false, canRemove = false,
 
   return (
     <div>
-      <h2 style={{ marginTop: 0, marginBottom: "1rem", color: colors.body }}>Attached Documents</h2>
+      <h2 style={{ marginTop: 0, marginBottom: "1rem", color: colors.body, fontSize: "1.05rem" }}>Attached Documents</h2>
 
       {canUpload && (
-        <div
-          style={{
-            marginBottom: "1rem",
-            border: "1px dashed #d6d6d6",
-            borderRadius: "12px",
-            padding: "1rem",
-            background: "#fafafa",
-          }}
-        >
+        <div style={{ marginBottom: "1rem" }}>
           <label
+            onClick={() => inputRef.current?.click()}
             style={{
-              display: "inline-block",
-              background: colors.brandInk,
-              color: "#fff",
-              borderRadius: "10px",
-              padding: "0.72rem 1rem",
-              fontWeight: 700,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.65rem",
+              width: "100%",
+              border: "2px dashed #dfe4ea",
+              borderRadius: "16px",
+              padding: "1.5rem 1rem",
+              background: "#f8fafc",
+              color: "#475569",
+              textAlign: "center",
               cursor: uploading ? "default" : "pointer",
+              transition: "border-color 0.2s ease, background-color 0.2s ease",
               opacity: uploading ? 0.7 : 1,
             }}
           >
-            {uploading ? "Uploading…" : "Upload file"}
+            <UploadCloud size={26} color="#64748b" />
+            <div>
+              <div style={{ fontWeight: 700, color: "#0f172a" }}>Click to upload or drag and drop</div>
+              <div style={{ marginTop: "0.2rem", fontSize: "0.75rem", color: "#64748b" }}>PDF, DOCX, PNG up to 2MB</div>
+            </div>
             <input
+              ref={inputRef}
               type="file"
               accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
               onChange={handleFileUpload}
@@ -122,9 +128,6 @@ function ClientDocuments({ documents = [], canUpload = false, canRemove = false,
               style={{ display: "none" }}
             />
           </label>
-          <div style={{ marginTop: "0.8rem", color: colors.muted, fontSize: "0.86rem" }}>
-            Accepts PDF, DOC, DOCX, JPG, and PNG files up to 2MB.
-          </div>
           {message && (
             <div
               role="status"
@@ -132,6 +135,7 @@ function ClientDocuments({ documents = [], canUpload = false, canRemove = false,
                 marginTop: "0.75rem",
                 color: message.tone === "success" ? colors.success : colors.danger,
                 fontWeight: 600,
+                fontSize: "0.8rem",
               }}
             >
               {message.text}
@@ -154,16 +158,17 @@ function ClientDocuments({ documents = [], canUpload = false, canRemove = false,
                   display: "flex",
                   justifyContent: "space-between",
                   gap: "1rem",
-                  border: "1px solid #efefef",
+                  border: "1px solid #e2e8f0",
                   borderRadius: "12px",
                   padding: "0.9rem 1rem",
                   alignItems: "center",
                   flexWrap: "wrap",
+                  background: "#ffffff",
                 }}
               >
                 <div>
                   <div style={{ fontWeight: 700, color: colors.body }}>{document.name}</div>
-                  <div style={{ color: colors.muted, fontSize: "0.8rem", marginTop: "0.15rem" }}>
+                  <div style={{ color: colors.muted, fontSize: "0.78rem", marginTop: "0.2rem" }}>
                     {formatDate(document.uploadedAt)} • {formatFileSize(document.size)}
                   </div>
                 </div>
@@ -173,7 +178,7 @@ function ClientDocuments({ documents = [], canUpload = false, canRemove = false,
                     type="button"
                     onClick={() => handleOpen(document, false)}
                     disabled={busy}
-                    style={actionStyle("#f3f4f6", colors.body, busy)}
+                    style={actionStyle("#f8fafc", colors.body, busy)}
                   >
                     Preview
                   </button>
@@ -181,7 +186,7 @@ function ClientDocuments({ documents = [], canUpload = false, canRemove = false,
                     type="button"
                     onClick={() => handleOpen(document, true)}
                     disabled={busy}
-                    style={actionStyle("#e5e7eb", colors.body, busy)}
+                    style={actionStyle("#eef2ff", colors.body, busy)}
                   >
                     Download
                   </button>
